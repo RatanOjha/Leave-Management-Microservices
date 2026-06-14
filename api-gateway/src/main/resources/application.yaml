@@ -8,11 +8,23 @@ spring:
   cloud:
     gateway:
       server:
-        webflux:
-          discovery:
-            locator:
-              enabled: true
-              lower-case-service-id: true
+        webmvc:
+          routes:
+
+            - id: auth-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/auth/**
+
+            - id: employee-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/employees/**
+
+            - id: leave-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/leave/**
 
 eureka:
   client:
@@ -24,3 +36,7 @@ management:
     web:
       exposure:
         include: "*"
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE

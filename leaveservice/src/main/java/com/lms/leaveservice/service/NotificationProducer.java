@@ -1,9 +1,9 @@
-package com.lms.notificationservice.service;
+package com.lms.leaveservice.service;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
-import com.lms.notificationservice.dto.NotificationMessage;
+import com.lms.leaveservice.dto.NotificationMessage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,5 +17,4 @@ public class NotificationProducer {
 
         rabbitTemplate.convertAndSend("leave.notifications", msg);
     }
-
 }

@@ -9,11 +9,13 @@ import com.lms.leaveservice.client.EmployeeClient;
 import com.lms.leaveservice.dto.DeductLeaveRequest;
 import com.lms.leaveservice.dto.EmployeeBalanceResponse;
 import com.lms.leaveservice.dto.LeaveApplyRequest;
+import com.lms.leaveservice.dto.NotificationMessage;
 import com.lms.leaveservice.dto.RejectRequest;
 import com.lms.leaveservice.entity.LeaveRequest;
 import com.lms.leaveservice.entity.LeaveStatus;
 import com.lms.leaveservice.repository.LeaveRepository;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -22,7 +24,9 @@ public class LeaveService {
 
     private final EmployeeClient employeeClient;
     private final LeaveRepository repository;
+    private final NotificationProducer notificationProducer;
 
+    @CircuitBreaker(name = "employeeService", fallbackMethod = "applyLeaveFallback")
     public LeaveRequest applyLeave(LeaveApplyRequest request) {
 
         validateDates(request);
@@ -35,7 +39,14 @@ public class LeaveService {
             .getManagerId()).leaveType(request.getLeaveType()).startDate(request.getStartDate()).endDate(request
                 .getEndDate()).days(request.getDays()).reason(request.getReason()).status(LeaveStatus.PENDING).build();
 
-        return repository.save(leave);
+        LeaveRequest saved = repository.save(leave);
+
+        notificationProducer.send(new NotificationMessage("LEAVE_APPLIED", "Employee " + saved.getEmployeeId()
+            + " applied for " + saved.getDays() + " day(s)"));
+
+        return saved;
+
+        // return repository.save(leave);
 
     }
 
@@ -138,6 +149,8 @@ public class LeaveService {
 
         leave.setStatus(LeaveStatus.APPROVED);
 
+        notificationProducer.send(new NotificationMessage("LEAVE_APPROVED", "Leave " + leave.getId() + " approved"));
+
         return repository.save(leave);
     }
 
@@ -155,12 +168,19 @@ public class LeaveService {
 
         leave.setRejectionReason(request.getReason());
 
+        notificationProducer.send(new NotificationMessage("LEAVE_REJECTED", "Leave " + leave.getId() + " rejected"));
+
         return repository.save(leave);
     }
 
     public List<LeaveRequest> historyByStatus(Long employeeId, LeaveStatus status) {
 
         return repository.findByEmployeeIdAndStatus(employeeId, status);
+    }
+
+    public LeaveRequest applyLeaveFallback(LeaveApplyRequest request, Exception ex) {
+
+        throw new RuntimeException("Employee Service is currently unavailable. Please try again later.");
     }
 
 }
